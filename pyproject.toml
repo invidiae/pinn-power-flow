@@ -1,0 +1,14 @@
+[project]
+name = "competition"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "grid2op[plotter]>=1.12.3",
+    "lightsim2grid>=0.12.2",
+    "matplotlib>=3.10.8",
+    "networkx>=3.6.1",
+    "numba>=0.64.0",
+    "plotly>=6.6.0",
+]
