@@ -9,3 +9,10 @@ wheels/
 # Virtual environments
 .venv
 uv.lock
+
+# Derived data artifacts
+data/processed.npz
+data/scaler_X.pkl
+data/scaler_Y.pkl
+data/best_model.pt
+data/loss_curve.png

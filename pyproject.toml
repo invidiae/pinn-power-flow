@@ -5,10 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "torch",
     "grid2op[plotter]>=1.12.3",
     "lightsim2grid>=0.12.2",
     "matplotlib>=3.10.8",
     "networkx>=3.6.1",
     "numba>=0.64.0",
     "plotly>=6.6.0",
+    "scikit-learn>=1.8.0",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }

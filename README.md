@@ -8,7 +8,7 @@ Train a Physics-Informed Neural Network (PINN) to predict AC power flow solution
 
 Replace the iterative Newton-Raphson solver (pandapower `runpp`) with a neural network that maps load conditions → bus voltages in a single forward pass.
 
-**Input:** Active and reactive load per load bus (P, Q) → flattened vector of length `2 × n_loads`
+**Input:** Active and reactive load per load bus (P, Q) → flattened vector of length `2 × (n_loads+n_generators)`
 **Output:** Voltage magnitude (pu) and angle (degrees) per bus → flattened vector of length `2 × n_buses`
 
 ---
@@ -17,31 +17,48 @@ Replace the iterative Newton-Raphson solver (pandapower `runpp`) with a neural n
 
 ### 1. Data Generation
 
-Generate a dataset of (load, voltage) pairs by sampling random operating points around the IEEE 14-bus baseline and running Newton-Raphson for ground truth.
+Generate a dataset of (load, voltage) pairs by sampling random operating points around the IEEE 14-bus baseline and running Newton-Raphson for targets.
 
 - Load the IEEE 14-bus network via `pandapower.networks.case14()`
-- For each sample, perturb all load and generator P and Q values by a random scaling factor (e.g. ±20%)
+- For each sample, perturb all load and generator P and Q values by a random scaling factor
 - Run `pp.runpp(net)` to solve the power flow
-- Save inputs (`net.load[['p_mw', 'q_mvar']]`) and targets (`net.res_bus[['vm_pu', 'va_degree']]`) to a CSV/numpy file
+- Save inputs (`net.load[['p_mw', 'q_mvar']]`) and targets (`net.res_bus[['vm_pu', 'va_degree']]`) to a CSV file
 - Discard samples where the solver fails to converge
 
 See [tutorial.py](tutorial.py) for a working implementation of this step.
 
 **Considerations:**
-- Generate enough samples to cover the operating space (start with ~5 000–10 000)
-- Widen the perturbation range gradually; too wide causes non-convergence
-- Store the baseline load values so perturbations are always relative to them (currently [tutorial.py](tutorial.py) modifies `net.load` in-place — this needs fixing before scaling up)
-
+- Generate enough samples to cover the operating space
+- Widen the perturbation range gradually; too wide causes non-convergence (#TODO was bedeutet das für das Netz?)
 ---
 
 ### 2. Dataset Preprocessing
 
-Prepare the raw DataFrame for training.
+Prepare the raw DataFrame for training. Run `preprocessing.py` directly to generate all artifacts:
 
-- Split columns back into inputs `X` and targets `y`
-- Normalize/standardize both `X` and `y` (z-score or min-max) — voltage magnitudes live near 1 pu, angles near 0°, but loads vary widely
-- Train/validation/test split (e.g. 70/15/15)
-- Save scalers so they can be inverted at inference time
+```
+python preprocessing.py
+```
+
+This will:
+- Split columns into inputs `X` (load P/Q) and targets `y` (bus V/θ)
+- Split into train/validation/test sets (70/15/15, `random_state=42`)
+- Fit a `StandardScaler` on the training set only (mean=0, std=1) and apply to both splits
+- Save the scaled arrays to `data/processed.npz`
+- Save the fitted scalers to `data/scaler_X.pkl` and `data/scaler_Y.pkl`
+
+To load the preprocessed data in other modules:
+
+```python
+from preprocessing import load_processed
+
+X_train, X_val, X_test, y_train, y_val, y_test, scaler_X, scaler_y = load_processed()
+
+# Invert scaling on model predictions before evaluation
+y_pred_original = scaler_y.inverse_transform(y_pred_scaled)
+```
+
+> `processed.npz` and `*.pkl` files are gitignored — they are derived from the CSV and should be regenerated locally.
 
 ---
 
@@ -49,8 +66,8 @@ Prepare the raw DataFrame for training.
 
 Before adding physics constraints, establish a plain MLP baseline.
 
-- Architecture: fully-connected network, 3–5 hidden layers, 128–256 units each, ReLU activations
-- Loss: MSE on predicted vs. true voltages
+- Architecture: fully-connected network, 2 hidden layers, 128 units each, ReLU activations
+- Loss: MSE on predicted vs. true voltages and angles
 - Train, evaluate, and record prediction error (MAE on `vm_pu`, `va_degree`)
 - This sets the accuracy floor that the PINN should meet or beat
 
@@ -79,7 +96,7 @@ where `G + jB = Y_bus` (admittance matrix, derivable from the network).
 
 ### 5. Training
 
-- Framework: PyTorch (or JAX/Flax)
+- Framework: PyTorch
 - Optimiser: Adam, learning rate ~1e-3 with cosine decay
 - Batch size: 256–512
 - Early stopping on validation loss
@@ -115,9 +132,13 @@ Also test on out-of-distribution operating points (e.g. ±40% load) to assess ge
 ```
 competition/
 ├── tutorial.py          # data generation prototype
+├── preprocessing.py     # scaling, train/test split, artifact export
 ├── main.py              # entry point
 ├── data/
-│   └── ieee14_samples.csv
+│   ├── ieee_14.csv      # raw samples (committed)
+│   ├── processed.npz    # scaled arrays (gitignored, regenerate locally)
+│   ├── scaler_X.pkl     # fitted input scaler (gitignored)
+│   └── scaler_Y.pkl     # fitted target scaler (gitignored)
 ├── models/
 │   ├── baseline_mlp.py
 │   └── pinn.py
