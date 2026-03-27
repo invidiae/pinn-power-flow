@@ -25,8 +25,6 @@ Generate a dataset of (load, voltage) pairs by sampling random operating points 
 - Save inputs (`net.load[['p_mw', 'q_mvar']]`) and targets (`net.res_bus[['vm_pu', 'va_degree']]`) to a CSV file
 - Discard samples where the solver fails to converge
 
-See [tutorial.py](tutorial.py) for a working implementation of this step.
-
 **Considerations:**
 - Generate enough samples to cover the operating space
 - Widen the perturbation range gradually; too wide causes non-convergence (#TODO was bedeutet das für das Netz?)
