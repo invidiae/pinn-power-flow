@@ -21,12 +21,12 @@ def generate_data(n_samples=1000):
 
     for i in tqdm(range(n_samples)):
         # Randomize loads
-        load_factor = np.random.uniform(0.8, 1.2, size=len(net.load))
+        load_factor = np.random.uniform(0, 5, size=len(net.load))
         net.load.p_mw = baseline_load_p_mw * load_factor
         net.load.q_mvar = baseline_load_q_mvar * load_factor
 
         # Randomize generators
-        gen_factor = np.random.uniform(0.8, 1.2, size=len(net.gen))
+        gen_factor = np.random.uniform(0, 3, size=len(net.gen))
         net.gen.p_mw = baseline_gen_p_mw * gen_factor
 
         try:
@@ -42,9 +42,14 @@ def generate_data(n_samples=1000):
             v_mag = net.res_bus.vm_pu.values
             v_ang = net.res_bus.va_degree.values
 
-            results.append(np.concatenate([inputs, v_mag, v_ang]))
+            # Net power injections per bus (MW/Mvar), positive = generation
+            p_bus = net.res_bus.p_mw.values
+            q_bus = net.res_bus.q_mvar.values
+
+            results.append(np.concatenate([inputs, v_mag, v_ang, p_bus, q_bus]))
         except:
             # Power flow might fail to converge if randomization is too wild
+            print("no convergence for sample")
             continue
 
     load_ids = net.load.index.tolist()
@@ -56,6 +61,8 @@ def generate_data(n_samples=1000):
         + [f"gen_{i}_p_mw" for i in gen_ids]
         + [f"bus_{i}_vm_pu" for i in bus_ids]
         + [f"bus_{i}_va_degree" for i in bus_ids]
+        + [f"bus_{i}_p_mw" for i in bus_ids]
+        + [f"bus_{i}_q_mvar" for i in bus_ids]
     )
     return pd.DataFrame(results, columns=columns)
 
@@ -65,5 +72,5 @@ pp.runpp(net, numba=True)
 Ybus = net._ppc["internal"]["Ybus"]
 scipy.sparse.save_npz("data/Ybus.npz", Ybus)
 
-df = generate_data(500)
+df = generate_data(200)
 df.to_csv("data/ieee_14.csv", index=False)

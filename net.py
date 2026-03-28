@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 from preprocessing import load_processed
 
-X_train, X_val, X_test, y_train, y_val, y_test, scaler_X, scaler_y = load_processed()
+X_train, X_val, X_test, y_train, y_val, y_test, _, _, _, _, scaler_X, scaler_y = load_processed()
 
 
 loss_fn = nn.MSELoss()
@@ -102,12 +102,11 @@ def run_training(train_dl, model, loss_fn, optimizer, n_epochs=10, patience=None
 
 if __name__ == "__main__":
     n.reset_parameters()
-    test_loss, train_losses, val_losses = run_training(train_dl, n, loss_fn, optimizer, n_epochs=30, patience=3)
+    test_loss, train_losses, val_losses = run_training(train_dl, n, loss_fn, optimizer, n_epochs=100, patience=80)
 
     print(f"Test loss: {test_loss:.6f}")
 
-    plt.plot(train_losses, label="train")
-    plt.plot(val_losses, label="val")
+    plt.plot(val_losses[:80], label="Val Loss NN")
     plt.xlabel("Epoch")
     plt.ylabel("MSE Loss")
     plt.legend()

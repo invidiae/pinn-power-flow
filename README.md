@@ -1,4 +1,4 @@
-# Power Flow PINN — IEEE 14-Bus
+## Power Flow PINN — IEEE 14-Bus
 
 Train a Physics-Informed Neural Network (PINN) to predict AC power flow solutions faster than Newton-Raphson. This is a work in progress – I am learning along the way.
 
@@ -20,10 +20,8 @@ Generate a dataset of (load, voltage) pairs by sampling random operating points 
 - Save inputs and targets to a CSV file
 - Discard samples where the solver fails to converge
 - Compute Ybus for calculating physics loss
+- Todo: Get a better understanding what non-convergence means
 
-**Considerations:**
-- Generate enough samples to cover the operating space
-- Widen the perturbation range gradually; too wide causes non-convergence (#TODO was bedeutet das für das Netz?)
 
 ### 2. Dataset Preprocessing
 
@@ -65,18 +63,31 @@ where `G + iB = Y_bus` (admittance matrix, derivable from the network).
 - Total loss: `L = α * L_data + β * L_physics`
 - Tune `α`, `β` – a common schedule starts with data loss only, then gradually increases `β`
 
+preliminary results 
+für 100 epochs, 200 samples, pertubation in interval x0,8-x1,2, bs=32, adam optimizer lr=1e-3, beta=0,5\, no early stopping
+PINN MAE voltage magnitude: 0.003682 pu\
+PINN MAE voltage angle:     0.050539 deg\
+NN MAE voltage magnitude: 0.007656 pu\
+NN MAE voltage angle:     0.078240 deg
 
-### 5. Training
+for pertubation x0,6-x1,4, the magnitudes are same same, but voltage angle approx. are significantly worse:\
+PINN MAE voltage magnitude: 0.003670 pu\
+PINN MAE voltage angle:     0.099308 deg\
+NN MAE voltage magnitude: 0.008621 pu\
+NN MAE voltage angle:     0.161284 deg
 
-- Framework: PyTorch
-- Optimiser: Adam, learning rate ~1e-3
-- Batch size: 256–512
-- Early stopping on validation loss
-- Log: total loss, data loss, physics residual norm separately
+this trend continues, pertubation x0-5 for loads and x0-3 for gen:\
+PINN MAE voltage magnitude: 0.006393 pu\
+PINN MAE voltage angle:     0.817888 deg\
+NN MAE voltage magnitude: 0.010739 pu\
+NN MAE voltage angle:     1.182836 deg
 
----
 
-### 6. Evaluation
+At this point, the voltage angles are so far off, such an approximation seems questionable for real use.
+
+Todo: Look at inference time and time Newton-Raphson.
+
+### 5. Evaluation
 
 Compare the trained PINN against Newton-Raphson on a held-out test set.
 
@@ -88,11 +99,3 @@ Compare the trained PINN against Newton-Raphson on a held-out test set.
 | Physics residual norm | Near zero |
 
 Also test on out-of-distribution operating points (e.g. ±40% load) to assess generalisation.
-
-## Dependencies
-
-- `pandapower` — network model and Newton-Raphson solver
-- `numpy`, `pandas` — data handling
-- `torch` — model and training
-- `scikit-learn` — preprocessing, metrics
-- `tqdm` — progress bars
